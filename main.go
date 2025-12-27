@@ -24,6 +24,7 @@ type config struct {
 	HTTPMethods string `env:"HTTP_METHODS" envDefault:""`
 	Paths       string `env:"PATHS" envDefault:""`
 	StatusCodes string `env:"STATUS_CODES" envDefault:""`
+	Hosts       string `env:"HOSTS" envDefault:""`
 }
 
 type logEntry struct {
@@ -70,6 +71,7 @@ func main() {
 	methodList := parseEnvList(cfg.HTTPMethods)
 	pathList := parseEnvList(cfg.Paths)
 	statusCodeList := parseEnvIntList(cfg.StatusCodes)
+	hostList := parseEnvList(cfg.Hosts)
 
 	// Validate that required environment variables are set
 	if len(ipList) == 0 {
@@ -84,6 +86,9 @@ func main() {
 	if len(statusCodeList) == 0 {
 		panic("STATUS_CODES environment variable must be set with at least one status code")
 	}
+	if len(hostList) == 0 {
+		panic("HOSTS environment variable must be set with at least one host")
+	}
 
 	for range ticker.C {
 		timeLocal := time.Now()
@@ -93,15 +98,13 @@ func main() {
 		httpMethod := methodList[rand.Intn(len(methodList))]
 		path := pathList[rand.Intn(len(pathList))]
 		statusCode := statusCodeList[rand.Intn(len(statusCodeList))]
+		host := hostList[rand.Intn(len(hostList))]
 
 		bodyBytesSent := realisticBytesSent(statusCode)
 		userAgent := gofakeit.UserAgent()
 
 		// Generate a fake request ID
 		requestID := strings.ToLower(gofakeit.UUID())
-
-		// Generate a fake host
-		host := gofakeit.DomainName()
 
 		logEntry := logEntry{
 			Timestamp: timeLocal,
