@@ -103,9 +103,6 @@ func main() {
 		// Generate a fake host
 		host := gofakeit.DomainName()
 
-		// Generate a fake referrer
-		httpReferrer := fmt.Sprintf("http://%s%s", gofakeit.DomainName(), randomPath(cfg.PathMinLength, cfg.PathMaxLength))
-
 		logEntry := logEntry{
 			Timestamp: timeLocal,
 			HTTP: httpInfo{
@@ -126,7 +123,7 @@ func main() {
 			Nginx: nginxInfo{
 				XForwardFor:  ip,
 				RemoteAddr:   ip,
-				HTTPReferrer: httpReferrer,
+				HTTPReferrer: "",
 			},
 		}
 
