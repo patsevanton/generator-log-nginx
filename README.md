@@ -14,6 +14,7 @@
 - **HTTP_METHODS** - список HTTP-методов
 - **PATHS** - список URL-путей
 - **STATUS_CODES** - список HTTP-статус кодов
+- **HOSTS** - список доменных имен
 
 ## Сборка из исходного кода
 
@@ -31,9 +32,9 @@ go build -o nginx-log-generator .
 
 ```shell
 # Минимальный пример запуска
-IP_ADDRESSES="10.0.0.1.1,10.0.0.2,10.0.0.3" \
+IP_ADDRESSES="10.0.0.1,10.0.0.2,10.0.0.3" \
 HTTP_METHODS="GET,POST,PUT" \
-PATHS="/api/v1/users,/api/v1/products,/api/v1/users,/api/v1/categories" \
+PATHS="/api/v1/users,/api/v1/products,/api/v1/categories" \
 STATUS_CODES="200,400,404,500,503" \
 HOSTS="api.example.com" \
 RATE=5 \
@@ -48,7 +49,7 @@ docker pull ghcr.io/patsevanton/generator-log-nginx:latest
 docker run \
   -e "IP_ADDRESSES=10.0.0.1,10.0.0.2,10.0.0.3" \
   -e "HTTP_METHODS=GET,POST,PUT" \
-  -e "PATHS=/api/v1/users,/api/v1/products,/api/v1/users,/api/v1/categories" \
+  -e "PATHS=/api/v1/users,/api/v1/products,/api/v1/categories" \
   -e "STATUS_CODES=200,400,404,500,503" \
   -e "HOSTS=api.example.com" \
   -e "RATE=10" \
@@ -67,8 +68,6 @@ docker run \
 | **STATUS_CODES**      | **Да**       | -            | Список кодов статуса через запятую (например, "200,400,404,500")         |
 | **HOSTS**             | **Да**       | -            | Список хостов через запятую (например, "example.com,api.example.com")    |
 | RATE                  | Нет          | 1            | Количество логов в секунду (float)                                       |
-| PATH_MIN              | Нет          | 1            | Минимальная длина пути (используется при генерации случайного пути)      |
-| PATH_MAX              | Нет          | 5            | Максимальная длина пути (используется при генерации случайного пути)     |
 
 **Важно**: 
 - Если списки (`IP_ADDRESSES`, `HTTP_METHODS`, `PATHS`, `STATUS_CODES`, `HOSTS`) не заданы, программа завершится с ошибкой
@@ -89,8 +88,8 @@ ingress-nginx-controller controller {"ts":"2023-10-01T12:00:00Z","http":{...},"n
     "request_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     "method": "GET",
     "status_code": 200,
-    "url": "example.com/api/v1/users",
-    "host": "example.com",
+    "url": "api.example.com/api/v1/users",
+    "host": "api.example.com",
     "uri": "/api/v1/users",
     "request_time": 0.123,
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -101,8 +100,8 @@ ingress-nginx-controller controller {"ts":"2023-10-01T12:00:00Z","http":{...},"n
     "bytes_sent": "1500"
   },
   "nginx": {
-    "x-forward-for": "192.168.1.1",
-    "remote_addr": "192.168.1.1",
+    "x-forward-for": "10.0.0.1",
+    "remote_addr": "10.0.0.1",
     "http_referrer": ""
   }
 }
@@ -112,24 +111,42 @@ ingress-nginx-controller controller {"ts":"2023-10-01T12:00:00Z","http":{...},"n
 
 1. **Случайный выбор из списков**: Все значения (IP, метод, путь, статус код, хост) выбираются случайным образом из предоставленных списков
 2. **Реалистичные данные**:
-   - Размер отправляемых байт зависит от статус кода (ошибки 4xx/5xx: 30-120 байт, успешные: 800-3100 байт)
+   - Размер отправляемых байт зависит от статус кода:
+     - Ошибки 4xx/5xx: 30-120 байт
+     - Успешные ответы (1xx, 2xx, 3xx): 800-3100 байт
    - Время запроса генерируется в диапазоне 0.001-2.000 секунд
-   - User-Agent генерируется автоматически
+   - User-Agent генерируется автоматически с помощью библиотеки gofakeit
 3. **Автоматическая генерация**:
-   - Request ID на основе UUID
+   - Request ID на основе UUID (в нижнем регистре)
    - User-Agent с помощью gofakeit
-   - URL формируется как комбинация хоста и пути
+   - URL формируется как комбинация хоста и пути (автоматически обрабатываются слеши)
 4. **Контроль частоты**: Точный контроль количества логов в секунду через параметр `RATE` (float)
 5. **Проверка входных данных**: 
    - Все обязательные списки должны быть не пустыми
-   - Корректировка min/max значений для длины пути
+   - STATUS_CODES автоматически преобразуется из строк в числа
 
 ## Структура лога
 
 Каждая запись лога содержит:
-- **ts**: Временная метка
-- **http**: HTTP-информация (метод, статус, URL, хост, user-agent и др.)
-- **nginx**: Информация Nginx (IP-адреса, реферер)
+- **ts**: Временная метка (timestamp)
+- **http**: HTTP-информация
+  - `request_id`: Уникальный идентификатор запроса (UUID)
+  - `method`: HTTP-метод (GET, POST, PUT и т.д.)
+  - `status_code`: Код статуса HTTP
+  - `url`: Полный URL (хост + путь)
+  - `host`: Доменное имя хоста
+  - `uri`: Путь запроса
+  - `request_time`: Время обработки запроса в секундах
+  - `user_agent`: User-Agent клиента
+  - `protocol`: Версия HTTP протокола
+  - `trace_session_id`: Идентификатор сессии трассировки (всегда пустая строка)
+  - `server_protocol`: Версия серверного протокола
+  - `content_type`: Тип контента (всегда "application/json")
+  - `bytes_sent`: Количество отправленных байт
+- **nginx**: Информация Nginx
+  - `x-forward-for`: IP-адрес клиента из заголовка X-Forwarded-For
+  - `remote_addr`: IP-адрес клиента
+  - `http_referrer`: Референр (всегда пустая строка)
 
 ## Лицензия
 
