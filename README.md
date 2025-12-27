@@ -46,7 +46,7 @@ RATE=5 \
 docker pull ghcr.io/patsevanton/generator-log-nginx:latest
 
 docker run \
-  -e "IP_ADDRESSES=10.0.0.1.1,10.0.0.2,10.0.0.3" \
+  -e "IP_ADDRESSES=10.0.0.1,10.0.0.2,10.0.0.3" \
   -e "HTTP_METHODS=GET,POST,PUT" \
   -e "PATHS=/api/v1/users,/api/v1/products,/api/v1/users,/api/v1/categories" \
   -e "STATUS_CODES=200,400,404,500,503" \
