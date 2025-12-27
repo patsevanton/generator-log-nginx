@@ -33,9 +33,9 @@ go build -o nginx-log-generator .
 # Минимальный пример запуска
 IP_ADDRESSES="192.168.1.1,10.0.0.1" \
 HTTP_METHODS="GET,POST" \
-PATHS="/api/v1/users,/api/v1/products,/health" \
-STATUS_CODES="200,201,400,404,500" \
-HOSTS="example.com,api.example.com" \
+PATHS="/api/v1/users,/api/v1/products,/api/v1/users,/api/v1/categories" \
+STATUS_CODES="200,400,404,500,503" \
+HOSTS="api.example.com" \
 RATE=5 \
 ./nginx-log-generator
 ```
