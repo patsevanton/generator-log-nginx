@@ -24,15 +24,31 @@ type config struct {
 }
 
 type logEntry struct {
-	IP              string    `json:"ip"`
-	TimeLocal       time.Time `json:"time_local"`
-	HTTPMethod       string    `json:"http_method"`
-	Path              string    `json:"path"`
-	HTTPVersion      string    `json:"http_version"`
-	StatusCode       int       `json:"status_code"`
-	BodyBytesSent    int       `json:"body_bytes_sent"`
-	Referrer         string    `json:"referrer"`
-	UserAgent        string    `json:"user_agent"`
+	Timestamp time.Time `json:"ts"`
+	HTTP      HTTPInfo  `json:"http"`
+	Nginx     NginxInfo `json:"nginx"`
+}
+
+type HTTPInfo struct {
+	RequestID        string  `json:"request_id"`
+	Method           string  `json:"method"`
+	StatusCode       int     `json:"status_code"`
+	URL              string  `json:"url"`
+	Host             string  `json:"host"`
+	URI              string  `json:"uri"`
+	RequestTime      float64 `json:"request_time"`
+	UserAgent        string  `json:"user_agent"`
+	Protocol         string  `json:"protocol"`
+	TraceSessionID   string  `json:"trace_session_id"`
+	ServerProtocol   string  `json:"server_protocol"`
+	ContentType      string  `json:"content_type"`
+	BytesSent        string  `json:"bytes_sent"`
+}
+
+type NginxInfo struct {
+	XForwardFor  string `json:"x-forward-for"`
+	RemoteAddr   string `json:"remote_addr"`
+	HTTPReferrer string `json:"http_referrer"`
 }
 
 func main() {
@@ -46,33 +62,47 @@ func main() {
 
 	gofakeit.Seed(time.Now().UnixNano())
 
-	var ip, httpMethod, path, httpVersion, referrer, userAgent string
-	var statusCode, bodyBytesSent int
-	var timeLocal time.Time
-
-	httpVersion = "HTTP/1.1"
-	referrer = "-"
-
 	for range ticker.C {
-		timeLocal = time.Now()
+		timeLocal := time.Now()
 
-		ip = weightedIPVersion(cfg.IPv4Percent)
-		httpMethod = weightedHTTPMethod(cfg.PercentageGet, cfg.PercentagePost, cfg.PercentagePut, cfg.PercentagePatch, cfg.PercentageDelete)
-		path = randomPath(cfg.PathMinLength, cfg.PathMaxLength)
-		statusCode = weightedStatusCode(cfg.StatusOkPercent)
-		bodyBytesSent = realisticBytesSent(statusCode)
-		userAgent = gofakeit.UserAgent()
+		ip := weightedIPVersion(cfg.IPv4Percent)
+		httpMethod := weightedHTTPMethod(cfg.PercentageGet, cfg.PercentagePost, cfg.PercentagePut, cfg.PercentagePatch, cfg.PercentageDelete)
+		path := randomPath(cfg.PathMinLength, cfg.PathMaxLength)
+		statusCode := weightedStatusCode(cfg.StatusOkPercent)
+		bodyBytesSent := realisticBytesSent(statusCode)
+		userAgent := gofakeit.UserAgent()
+
+		// Generate a fake request ID
+		requestID := strings.ToLower(gofakeit.UUID())
+		
+		// Generate a fake host
+		host := gofakeit.DomainName()
+		
+		// Generate a fake referrer
+		httpReferrer := fmt.Sprintf("http://%s%s", gofakeit.DomainName(), randomPath(cfg.PathMinLength, cfg.PathMaxLength))
 
 		logEntry := logEntry{
-			IP:           ip,
-			TimeLocal:    timeLocal,
-			HTTPMethod:    httpMethod,
-			Path:          path,
-			HTTPVersion:   httpVersion,
-			StatusCode:   statusCode,
-			BodyBytesSent: bodyBytesSent,
-			Referrer:      referrer,
-			UserAgent:    userAgent,
+			Timestamp: timeLocal,
+			HTTP: HTTPInfo{
+				RequestID:      requestID,
+				Method:         httpMethod,
+				StatusCode:     statusCode,
+				URL:            fmt.Sprintf("%s/%s", host, strings.TrimPrefix(path, "/")),
+				Host:           host,
+				URI:            path,
+				RequestTime:    gofakeit.Float64Range(0.001, 2.000),
+				UserAgent:      userAgent,
+				Protocol:       "HTTP/1.1",
+				TraceSessionID: "",
+				ServerProtocol: "HTTP/1.1",
+				ContentType:    "application/json",
+				BytesSent:      fmt.Sprintf("%d", bodyBytesSent),
+			},
+			Nginx: NginxInfo{
+				XForwardFor:  ip,
+				RemoteAddr:   "",
+				HTTPReferrer: httpReferrer,
+			},
 		}
 
 		jsonData, err := json.Marshal(logEntry)
@@ -80,7 +110,8 @@ func main() {
 			panic(err)
 		}
 
-		fmt.Println(string(jsonData))
+		// Print with the desired prefix format
+		fmt.Printf("ingress-nginx-controller controller %s\n", string(jsonData))
 	}
 }
 
@@ -102,20 +133,21 @@ func weightedStatusCode(percentageOk int) int {
 }
 
 func weightedHTTPMethod(percentageGet, percentagePost, percentagePut, percentagePatch, percentageDelete int) string {
-	if percentageGet+percentagePost >= 100 {
+	total := percentageGet + percentagePost + percentagePut + percentagePatch + percentageDelete
+	if total > 100 {
 		panic("HTTP method percentages add up to more than 100%")
 	}
 
 	roll := gofakeit.Number(0, 100)
 	if roll <= percentageGet {
 		return "GET"
-	} else if roll <= percentagePost {
+	} else if roll <= percentageGet+percentagePost {
 		return "POST"
-	} else if roll <= percentagePut {
+	} else if roll <= percentageGet+percentagePost+percentagePut {
 		return "PUT"
-	} else if roll <= percentagePatch {
+	} else if roll <= percentageGet+percentagePost+percentagePut+percentagePatch {
 		return "PATCH"
-	} else if roll <= percentageDelete {
+	} else if roll <= percentageGet+percentagePost+percentagePut+percentagePatch+percentageDelete {
 		return "DELETE"
 	}
 
@@ -144,7 +176,7 @@ func randomPath(min, max int) string {
 		path.WriteString(gofakeit.BuzzWord())
 	}
 
-	path.WriteString(gofakeit.RandomString([]string{".hmtl", ".php", ".htm", ".jpg", ".png", ".gif", ".svg", ".css", ".js"}))
+	path.WriteString(gofakeit.RandomString([]string{".html", ".php", ".htm", ".jpg", ".png", ".gif", ".svg", ".css", ".js"}))
 
 	result := path.String()
 	return strings.Replace(result, " ", "%20", -1)

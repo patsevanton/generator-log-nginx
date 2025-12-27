@@ -15,24 +15,24 @@ To build the binary from source code:
 1. Ensure you have Go installed (version 1.16 or later)
 
 2. Build the binary:
-   ```sh
-   go build -o nginx-log-generator .
-   ```
+```shell
+go build -o nginx-log-generator .
+```
 
 ## Usage
 
 The most important step is to set the desired rate in the `RATE` environment variable. The simplest way to do this is the following:
 
-```sh
+```shell
 $ # Will generate 10 entries per second
 $ RATE=10 ./nginx-log-generator
 ```
 
 The reason this is an environment variable is so it's easier to run via Docker as well:
 
-```sh
-$ docker pull patsevanton/nginx-log-generator
-$ docker run -e "RATE=10" patsevanton/nginx-log-generator
+```shell
+$ docker pull ghcr.io/patsevanton/generator-log-nginx:latest
+$ docker run -e "RATE=10" ghcr.io/patsevanton/generator-log-nginx:latest
 ```
 
 ### Configuration
