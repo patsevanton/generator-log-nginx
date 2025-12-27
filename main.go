@@ -13,9 +13,7 @@ import (
 )
 
 type config struct {
-	Rate          float32 `env:"RATE" envDefault:"1"`
-	PathMinLength int     `env:"PATH_MIN" envDefault:"1"`
-	PathMaxLength int     `env:"PATH_MAX" envDefault:"5"`
+	Rate float32 `env:"RATE" envDefault:"1"`
 
 	// Environment variables for specifying exact values
 	IPAddresses string `env:"IP_ADDRESSES" envDefault:""`
@@ -58,7 +56,6 @@ func main() {
 	if err := env.Parse(&cfg); err != nil {
 		panic(err)
 	}
-	checkMinMax(&cfg.PathMinLength, &cfg.PathMaxLength)
 
 	ticker := time.NewTicker(time.Second / time.Duration(cfg.Rate))
 
@@ -167,32 +164,4 @@ func realisticBytesSent(statusCode int) int {
 	}
 
 	return rand.Intn(3100-800) + 800
-}
-
-func randomPath(min, max int) string {
-	var pathBuilder strings.Builder
-	length := rand.Intn(max-min+1) + min
-
-	pathBuilder.WriteString("/")
-
-	for i := 0; i < length; i++ {
-		if i > 0 {
-			pathBuilder.WriteString(gofakeit.RandomString([]string{"", "", "", "-", "_", "/"}))
-		}
-		pathBuilder.WriteString(gofakeit.BuzzWord())
-	}
-
-	return pathBuilder.String()
-}
-
-func checkMinMax(min, max *int) {
-	if *min < 1 {
-		*min = 1
-	}
-	if *max < 1 {
-		*max = 1
-	}
-	if *min > *max {
-		*min, *max = *max, *min
-	}
 }
