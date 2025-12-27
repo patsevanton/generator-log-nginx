@@ -31,8 +31,8 @@ go build -o nginx-log-generator .
 
 ```shell
 # Минимальный пример запуска
-IP_ADDRESSES="192.168.1.1,10.0.0.1" \
-HTTP_METHODS="GET,POST" \
+IP_ADDRESSES="10.0.0.1.1,10.0.0.2,10.0.0.3" \
+HTTP_METHODS="GET,POST,PUT" \
 PATHS="/api/v1/users,/api/v1/products,/api/v1/users,/api/v1/categories" \
 STATUS_CODES="200,400,404,500,503" \
 HOSTS="api.example.com" \
@@ -46,11 +46,11 @@ RATE=5 \
 docker pull ghcr.io/patsevanton/generator-log-nginx:latest
 
 docker run \
-  -e "IP_ADDRESSES=192.168.1.1,10.0.0.1" \
+  -e "IP_ADDRESSES=10.0.0.1.1,10.0.0.2,10.0.0.3" \
   -e "HTTP_METHODS=GET,POST,PUT" \
-  -e "PATHS=/api/v1/users,/api/v1/products" \
-  -e "STATUS_CODES=200,400,500" \
-  -e "HOSTS=example.com,api.example.com" \
+  -e "PATHS=/api/v1/users,/api/v1/products,/api/v1/users,/api/v1/categories" \
+  -e "STATUS_CODES=200,400,404,500,503" \
+  -e "HOSTS=api.example.com" \
   -e "RATE=10" \
   ghcr.io/patsevanton/generator-log-nginx:latest
 ```
