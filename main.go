@@ -13,16 +13,11 @@ import (
 )
 
 type config struct {
-	Rate             float32 `env:"RATE" envDefault:"1"`
-	IPv4Percent      int     `env:"IPV4_PERCENT" envDefault:"100"`
-	StatusOkPercent  int     `env:"STATUS_OK_PERCENT" envDefault:"80"`
-	PathMinLength    int     `env:"PATH_MIN" envDefault:"1"`
-	PathMaxLength    int     `env:"PATH_MAX" envDefault:"5"`
-	PercentageGet    int     `env:"GET_PERCENT" envDefault:"60"`
-	PercentagePost   int     `env:"POST_PERCENT" envDefault:"30"`
-	PercentagePut    int     `env:"PUT_PERCENT" envDefault:"0"`
-	PercentagePatch  int     `env:"PATCH_PERCENT" envDefault:"0"`
-	PercentageDelete int     `env:"DELETE_PERCENT" envDefault:"0"`
+	Rate            float32 `env:"RATE" envDefault:"1"`
+	IPv4Percent     int     `env:"IPV4_PERCENT" envDefault:"100"`
+	StatusOkPercent int     `env:"STATUS_OK_PERCENT" envDefault:"80"`
+	PathMinLength   int     `env:"PATH_MIN" envDefault:"1"`
+	PathMaxLength   int     `env:"PATH_MAX" envDefault:"5"`
 
 	// Environment variables for specifying exact values
 	IPAddresses string `env:"IP_ADDRESSES" envDefault:""`
@@ -104,10 +99,10 @@ func main() {
 
 		// Generate a fake request ID
 		requestID := strings.ToLower(gofakeit.UUID())
-		
+
 		// Generate a fake host
 		host := gofakeit.DomainName()
-		
+
 		// Generate a fake referrer
 		httpReferrer := fmt.Sprintf("http://%s%s", gofakeit.DomainName(), randomPath(cfg.PathMinLength, cfg.PathMaxLength))
 
@@ -156,7 +151,7 @@ func parseEnvIntList(envVar string) []int {
 	if envVar == "" {
 		return []int{}
 	}
-	
+
 	parts := strings.Split(strings.TrimSpace(envVar), ",")
 	var result []int
 	for _, part := range parts {
