@@ -1,8 +1,10 @@
 CONTRIBUTING.md
 Dockerfile
+env_examples.sh
+go.mod
+go.sum
 .git
 .github
 .gitignore
 LICENSE
-README.md
 .rooignore

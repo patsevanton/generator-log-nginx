@@ -1,63 +1,115 @@
-# Fork
-
-This project is fork https://github.com/kscarlett/nginx-log-generator
-
 # Nginx Log Generator
 
-A tiny Go utility to generate a large amount realistic-looking Nginx logs quickly. It was written to aid in testing logging pipelines and other such tools, and demoing them in Kubernetes.
+Этот проект является форком https://github.com/kscarlett/nginx-log-generator с изменённой логикой генерации логов.
 
-Most of the heavy lifting is done by the amazing [gofakeit](https://github.com/brianvoe/gofakeit) library, with some extra work to skew the results towards typical values.
+Утилита на Go для генерации реалистичных логов Nginx в формате JSON. Она предназначена для тестирования пайплайнов сбора логов, демонстрации работы в Kubernetes и других сценариях, требующих реалистичных данных логов.
 
-## Building from source
+Большая часть данных генерируется с помощью библиотеки [gofakeit](https://github.com/brianvoe/gofakeit).
 
-To build the binary from source code:
+## Основные изменения в форке
 
-1. Ensure you have Go installed (version 1.16 or later)
+В отличие от исходной версии, в этой реализации **все основные параметры логов задаются через обязательные переменные окружения**, что обеспечивает полный контроль над генерируемыми данными:
 
-2. Build the binary:
+- **IP_ADDRESSES** - список IP-адресов
+- **HTTP_METHODS** - список HTTP-методов
+- **PATHS** - список URL-путей
+- **STATUS_CODES** - список HTTP-статус кодов
+
+## Сборка из исходного кода
+
+Для сборки бинарного файла из исходного кода:
+
+1. Убедитесь, что у вас установлен Go (версия 1.16 или выше)
+2. Выполните сборку:
 ```shell
 go build -o nginx-log-generator .
 ```
 
-## Usage
+## Использование
 
-The most important step is to set the desired rate in the `RATE` environment variable. The simplest way to do this is the following:
-
-```shell
-$ # Will generate 10 entries per second
-$ RATE=10 ./nginx-log-generator
-```
-
-The reason this is an environment variable is so it's easier to run via Docker as well:
+### Основные обязательные переменные окружения
 
 ```shell
-$ docker pull ghcr.io/patsevanton/generator-log-nginx:latest
-$ docker run -e "RATE=10" ghcr.io/patsevanton/generator-log-nginx:latest
+# Минимальный пример запуска
+IP_ADDRESSES="192.168.1.1,10.0.0.1" \
+HTTP_METHODS="GET,POST" \
+PATHS="/api/v1/users,/api/v1/products,/health" \
+STATUS_CODES="200,201,400,404,500" \
+RATE=5 \
+./nginx-log-generator
 ```
 
-### Configuration
+### Запуск через Docker
 
-The following environment variables can be set to modify the output.
+```shell
+docker pull ghcr.io/patsevanton/generator-log-nginx:latest
 
-| Name              | Default | Notes                                                                                                                                           |
-| ----------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| RATE              | 1       | Logs to output per second.                                                                                                                      |
-| IPV4_PERCENT      | 100     | Percentage of IP addresses that will be IPv4. Change to 0 to only get IPv6.                                                                     |
-| STATUS_OK_PERCENT | 80      | _Roughly_ the percentage of `200` status codes. The rest will be randomised and may contain `200` as well.                                      |
-| PATH_MIN          | 1       | Minimum elements to put in the request path.                                                                                                    |
-| PATH_MAX          | 5       | Maximum elements to put in the request path.                                                                                                    |
-| GET_PERCENT       | 60      | Percentage of requests that will be `GET` requests. If the total adds up to less than 100%, the rest will be made up of random HTTP methods.    |
-| POST_PERCENT      | 30      | Percentage of requests that will be `POST` requests. If the total adds up to less than 100%, the rest will be made up of random HTTP methods.   |
-| PUT_PERCENT       | 0       | Percentage of requests that will be `PUT` requests. If the total adds up to less than 100%, the rest will be made up of random HTTP methods.    |
-| PATCH_PERCENT     | 0       | Percentage of requests that will be `PATCH` requests. If the total adds up to less than 100%, the rest will be made up of random HTTP methods.  |
-| DELETE_PERCENT    | 0       | Percentage of requests that will be `DELETE` requests. If the total adds up to less than 100%, the rest will be made up of random HTTP methods. |
+docker run \
+  -e "IP_ADDRESSES=192.168.1.1,10.0.0.1" \
+  -e "HTTP_METHODS=GET,POST,PUT" \
+  -e "PATHS=/api/v1/users,/api/v1/products" \
+  -e "STATUS_CODES=200,400,500" \
+  -e "RATE=10" \
+  ghcr.io/patsevanton/generator-log-nginx:latest
+```
 
-## Note
+### Конфигурация
 
-This is a tool I made in no time at all, because I needed a tool that did exactly this right that second. The code quality isn't optimal and it can probably be optimised. I will be coming back to it at some other time.
+Все переменные окружения являются обязательными, кроме тех, что имеют значение по умолчанию:
 
-## License
+| Название              | Обязательный | По умолчанию | Описание                                                                 |
+| --------------------- | ------------ | ------------ | ------------------------------------------------------------------------ |
+| **IP_ADDRESSES**      | **Да**       | -            | Список IP-адресов через запятую (например, "192.168.1.1,10.0.0.1")      |
+| **HTTP_METHODS**      | **Да**       | -            | Список HTTP-методов через запятую (например, "GET,POST,PUT")            |
+| **PATHS**             | **Да**       | -            | Список путей через запятую (например, "/api/v1/users,/api/v1/products") |
+| **STATUS_CODES**      | **Да**       | -            | Список кодов статуса через запятую (например, "200,400,404,500")        |
+| RATE                  | Нет          | 1            | Количество логов в секунду                                               |
+| PATH_MIN              | Нет          | 1            | Минимальная длина пути                                                   |
+| PATH_MAX              | Нет          | 5            | Максимальная длина пути                                                  |
 
-This tool is released under the [MIT License](LICENSE).
+**Примечание**: Все переменные с процентами (`IPV4_PERCENT`, `STATUS_OK_PERCENT`, `GET_PERCENT`, `POST_PERCENT`, `PUT_PERCENT`, `PATCH_PERCENT`, `DELETE_PERCENT`) из оригинальной версии больше не используются, так как все значения выбираются случайно из предоставленных списков.
 
+## Пример выходных данных
 
+Программа выводит логи в формате JSON с префиксом:
+```
+ingress-nginx-controller controller {"ts":"2023-10-01T12:00:00Z","http":{...},"nginx":{...}}
+```
+
+Пример полной записи лога:
+```json
+{
+  "ts": "2023-10-01T12:00:00Z",
+  "http": {
+    "request_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "method": "GET",
+    "status_code": 200,
+    "url": "example.com/api/v1/users",
+    "host": "example.com",
+    "uri": "/api/v1/users",
+    "request_time": 0.123,
+    "user_agent": "Mozilla/5.0...",
+    "protocol": "HTTP/1.1",
+    "trace_session_id": "",
+    "server_protocol": "HTTP/1.1",
+    "content_type": "application/json",
+    "bytes_sent": "1500"
+  },
+  "nginx": {
+    "x-forward-for": "192.168.1.1",
+    "remote_addr": "192.168.1.1",
+    "http_referrer": "http://referrer.com/some-path"
+  }
+}
+```
+
+## Особенности реализации
+
+1. **Случайный выбор**: Все значения (IP, метод, путь, статус код) выбираются случайным образом из предоставленных списков
+2. **Реалистичные данные**: Размер отправляемых байт зависит от статус кода (ошибки имеют меньший размер)
+3. **Автоматическая генерация**: Запросы ID, User-Agent, домены и рефереры генерируются автоматически
+4. **Контроль частоты**: Точный контроль количества логов в секунду через параметр `RATE`
+
+## Лицензия
+
+Этот инструмент распространяется под лицензией [MIT License](LICENSE).

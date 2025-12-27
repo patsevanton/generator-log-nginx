@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,31 +23,37 @@ type config struct {
 	PercentagePut    int     `env:"PUT_PERCENT" envDefault:"0"`
 	PercentagePatch  int     `env:"PATCH_PERCENT" envDefault:"0"`
 	PercentageDelete int     `env:"DELETE_PERCENT" envDefault:"0"`
+
+	// Environment variables for specifying exact values
+	IPAddresses string `env:"IP_ADDRESSES" envDefault:""`
+	HTTPMethods string `env:"HTTP_METHODS" envDefault:""`
+	Paths       string `env:"PATHS" envDefault:""`
+	StatusCodes string `env:"STATUS_CODES" envDefault:""`
 }
 
 type logEntry struct {
 	Timestamp time.Time `json:"ts"`
-	HTTP      HTTPInfo  `json:"http"`
-	Nginx     NginxInfo `json:"nginx"`
+	HTTP      httpInfo  `json:"http"`
+	Nginx     nginxInfo `json:"nginx"`
 }
 
-type HTTPInfo struct {
-	RequestID        string  `json:"request_id"`
-	Method           string  `json:"method"`
-	StatusCode       int     `json:"status_code"`
-	URL              string  `json:"url"`
-	Host             string  `json:"host"`
-	URI              string  `json:"uri"`
-	RequestTime      float64 `json:"request_time"`
-	UserAgent        string  `json:"user_agent"`
-	Protocol         string  `json:"protocol"`
-	TraceSessionID   string  `json:"trace_session_id"`
-	ServerProtocol   string  `json:"server_protocol"`
-	ContentType      string  `json:"content_type"`
-	BytesSent        string  `json:"bytes_sent"`
+type httpInfo struct {
+	RequestID      string  `json:"request_id"`
+	Method         string  `json:"method"`
+	StatusCode     int     `json:"status_code"`
+	URL            string  `json:"url"`
+	Host           string  `json:"host"`
+	URI            string  `json:"uri"`
+	RequestTime    float64 `json:"request_time"`
+	UserAgent      string  `json:"user_agent"`
+	Protocol       string  `json:"protocol"`
+	TraceSessionID string  `json:"trace_session_id"`
+	ServerProtocol string  `json:"server_protocol"`
+	ContentType    string  `json:"content_type"`
+	BytesSent      string  `json:"bytes_sent"`
 }
 
-type NginxInfo struct {
+type nginxInfo struct {
 	XForwardFor  string `json:"x-forward-for"`
 	RemoteAddr   string `json:"remote_addr"`
 	HTTPReferrer string `json:"http_referrer"`
@@ -62,13 +70,35 @@ func main() {
 
 	gofakeit.Seed(time.Now().UnixNano())
 
+	// Parse environment variables for specific values
+	ipList := parseEnvList(cfg.IPAddresses)
+	methodList := parseEnvList(cfg.HTTPMethods)
+	pathList := parseEnvList(cfg.Paths)
+	statusCodeList := parseEnvIntList(cfg.StatusCodes)
+
+	// Validate that required environment variables are set
+	if len(ipList) == 0 {
+		panic("IP_ADDRESSES environment variable must be set with at least one IP address")
+	}
+	if len(methodList) == 0 {
+		panic("HTTP_METHODS environment variable must be set with at least one HTTP method")
+	}
+	if len(pathList) == 0 {
+		panic("PATHS environment variable must be set with at least one path")
+	}
+	if len(statusCodeList) == 0 {
+		panic("STATUS_CODES environment variable must be set with at least one status code")
+	}
+
 	for range ticker.C {
 		timeLocal := time.Now()
 
-		ip := weightedIPVersion(cfg.IPv4Percent)
-		httpMethod := weightedHTTPMethod(cfg.PercentageGet, cfg.PercentagePost, cfg.PercentagePut, cfg.PercentagePatch, cfg.PercentageDelete)
-		path := randomPath(cfg.PathMinLength, cfg.PathMaxLength)
-		statusCode := weightedStatusCode(cfg.StatusOkPercent)
+		// Use only values from environment variables
+		ip := ipList[rand.Intn(len(ipList))]
+		httpMethod := methodList[rand.Intn(len(methodList))]
+		path := pathList[rand.Intn(len(pathList))]
+		statusCode := statusCodeList[rand.Intn(len(statusCodeList))]
+
 		bodyBytesSent := realisticBytesSent(statusCode)
 		userAgent := gofakeit.UserAgent()
 
@@ -83,7 +113,7 @@ func main() {
 
 		logEntry := logEntry{
 			Timestamp: timeLocal,
-			HTTP: HTTPInfo{
+			HTTP: httpInfo{
 				RequestID:      requestID,
 				Method:         httpMethod,
 				StatusCode:     statusCode,
@@ -98,9 +128,9 @@ func main() {
 				ContentType:    "application/json",
 				BytesSent:      fmt.Sprintf("%d", bodyBytesSent),
 			},
-			Nginx: NginxInfo{
+			Nginx: nginxInfo{
 				XForwardFor:  ip,
-				RemoteAddr:   "",
+				RemoteAddr:   ip,
 				HTTPReferrer: httpReferrer,
 			},
 		}
@@ -115,71 +145,51 @@ func main() {
 	}
 }
 
+func parseEnvList(envVar string) []string {
+	if envVar == "" {
+		return []string{}
+	}
+	return strings.Split(strings.TrimSpace(envVar), ",")
+}
+
+func parseEnvIntList(envVar string) []int {
+	if envVar == "" {
+		return []int{}
+	}
+	
+	parts := strings.Split(strings.TrimSpace(envVar), ",")
+	var result []int
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if val, err := strconv.Atoi(part); err == nil {
+			result = append(result, val)
+		}
+	}
+	return result
+}
+
 func realisticBytesSent(statusCode int) int {
-	if statusCode != 200 {
-		return gofakeit.Number(30, 120)
+	if statusCode >= 400 {
+		return rand.Intn(120-30) + 30
 	}
 
-	return gofakeit.Number(800, 3100)
-}
-
-func weightedStatusCode(percentageOk int) int {
-	roll := gofakeit.Number(0, 100)
-	if roll <= percentageOk {
-		return 200
-	}
-
-	return gofakeit.HTTPStatusCodeSimple()
-}
-
-func weightedHTTPMethod(percentageGet, percentagePost, percentagePut, percentagePatch, percentageDelete int) string {
-	total := percentageGet + percentagePost + percentagePut + percentagePatch + percentageDelete
-	if total > 100 {
-		panic("HTTP method percentages add up to more than 100%")
-	}
-
-	roll := gofakeit.Number(0, 100)
-	if roll <= percentageGet {
-		return "GET"
-	} else if roll <= percentageGet+percentagePost {
-		return "POST"
-	} else if roll <= percentageGet+percentagePost+percentagePut {
-		return "PUT"
-	} else if roll <= percentageGet+percentagePost+percentagePut+percentagePatch {
-		return "PATCH"
-	} else if roll <= percentageGet+percentagePost+percentagePut+percentagePatch+percentageDelete {
-		return "DELETE"
-	}
-
-	return gofakeit.HTTPMethod()
-}
-
-func weightedIPVersion(percentageIPv4 int) string {
-	roll := gofakeit.Number(0, 100)
-	if roll <= percentageIPv4 {
-		return gofakeit.IPv4Address()
-	} else {
-		return gofakeit.IPv6Address()
-	}
+	return rand.Intn(3100-800) + 800
 }
 
 func randomPath(min, max int) string {
-	var path strings.Builder
-	length := gofakeit.Number(min, max)
+	var pathBuilder strings.Builder
+	length := rand.Intn(max-min+1) + min
 
-	path.WriteString("/")
+	pathBuilder.WriteString("/")
 
 	for i := 0; i < length; i++ {
 		if i > 0 {
-			path.WriteString(gofakeit.RandomString([]string{"-", "-", "_", "%20", "/", "/", "/"}))
+			pathBuilder.WriteString(gofakeit.RandomString([]string{"", "", "", "-", "_", "/"}))
 		}
-		path.WriteString(gofakeit.BuzzWord())
+		pathBuilder.WriteString(gofakeit.BuzzWord())
 	}
 
-	path.WriteString(gofakeit.RandomString([]string{".html", ".php", ".htm", ".jpg", ".png", ".gif", ".svg", ".css", ".js"}))
-
-	result := path.String()
-	return strings.Replace(result, " ", "%20", -1)
+	return pathBuilder.String()
 }
 
 func checkMinMax(min, max *int) {
