@@ -131,7 +131,7 @@ func main() {
 		}
 
 		// Print with the desired prefix format
-		fmt.Printf(string(jsonData))
+		fmt.Println(string(jsonData))
 	}
 }
 
