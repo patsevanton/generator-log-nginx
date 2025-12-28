@@ -132,7 +132,6 @@ func main() {
 
 		// Print with the desired prefix format
 		fmt.Printf(string(jsonData))
-		# fmt.Printf("ingress-nginx-controller controller %s\n", string(jsonData))
 	}
 }
 
