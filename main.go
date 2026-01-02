@@ -36,7 +36,7 @@ type httpInfo struct {
 	URL            string  `json:"url"`
 	Host           string  `json:"host"`
 	URI            string  `json:"uri"`
-	RequestTime    float64 `json:"request_time"`
+	RequestTime    float32 `json:"request_time"`
 	UserAgent      string  `json:"user_agent"`
 	Protocol       string  `json:"protocol"`
 	TraceSessionID string  `json:"trace_session_id"`
@@ -110,7 +110,7 @@ func main() {
 				URL:            fmt.Sprintf("%s/%s", host, strings.TrimPrefix(path, "/")),
 				Host:           host,
 				URI:            path,
-				RequestTime:    gofakeit.Float64Range(0.001, 2.000),
+				RequestTime:    gofakeit.Float32Range(0.001, 2.000),
 				UserAgent:      userAgent,
 				Protocol:       "HTTP/1.1",
 				TraceSessionID: "",
